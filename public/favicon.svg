@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="48" fill="#081511" stroke="#E2B13C" stroke-width="4"/>
+  <circle cx="50" cy="50" r="38" fill="none" stroke="#E2B13C" stroke-width="2" stroke-dasharray="5,5"/>
+  <!-- Football pattern -->
+  <path d="M 50 20 L 50 12 M 30 35 L 23 30 M 70 35 L 77 30 M 38 65 L 33 72 M 62 65 L 67 72" stroke="#E2B13C" stroke-width="3"/>
+  <polygon points="50,38 61,46 57,58 43,58 39,46" fill="#E2B13C"/>
+  <path d="M 50 38 L 50 20 M 61 46 L 70 35 M 57 58 L 62 65 M 43 58 L 38 65 M 39 46 L 30 35" stroke="#E2B13C" stroke-width="3"/>
+</svg>
