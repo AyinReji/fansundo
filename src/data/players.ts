@@ -1,6 +1,10 @@
 /**
- * Sample squads — a representative ~5-player roster per nation so the team page
- * has real content. Stats are mock/illustrative. Replace with the real squad later.
+ * Squads — 23-player roster per nation (FIFA World Cup squad size).
+ * Known names are used for marquee teams; remaining slots and unknown teams
+ * are filled with realistic positional placeholders. Stats are mock/illustrative.
+ *
+ * // Future API integration point: replace this generated map with the response
+ * // from /v1/teams/:slug/squad and wire real player.photoUrl when available.
  */
 import { TEAMS } from "./teams";
 
@@ -16,41 +20,58 @@ export interface Player {
   appearances: number;
 }
 
+/** Marquee names per team (front-loaded). Remaining slots auto-fill. */
 const sampleNames: Record<string, string[]> = {
-  argentina: ["Emiliano Martínez", "Cristian Romero", "Rodrigo De Paul", "Lionel Messi", "Julián Álvarez"],
-  brazil: ["Alisson", "Marquinhos", "Casemiro", "Vinícius Jr.", "Rodrygo"],
-  france: ["Mike Maignan", "William Saliba", "Aurélien Tchouaméni", "Kylian Mbappé", "Ousmane Dembélé"],
-  germany: ["Manuel Neuer", "Antonio Rüdiger", "Joshua Kimmich", "Jamal Musiala", "Florian Wirtz"],
-  england: ["Jordan Pickford", "John Stones", "Declan Rice", "Harry Kane", "Bukayo Saka"],
-  portugal: ["Diogo Costa", "Rúben Dias", "Bruno Fernandes", "Cristiano Ronaldo", "Rafael Leão"],
-  spain: ["Unai Simón", "Aymeric Laporte", "Rodri", "Lamine Yamal", "Álvaro Morata"],
-  netherlands: ["Bart Verbruggen", "Virgil van Dijk", "Frenkie de Jong", "Cody Gakpo", "Memphis Depay"],
-  belgium: ["Koen Casteels", "Wout Faes", "Kevin De Bruyne", "Romelu Lukaku", "Jérémy Doku"],
-  croatia: ["Dominik Livaković", "Joško Gvardiol", "Luka Modrić", "Andrej Kramarić", "Mateo Kovačić"],
-  morocco: ["Yassine Bounou", "Achraf Hakimi", "Sofyan Amrabat", "Hakim Ziyech", "Youssef En-Nesyri"],
-  japan: ["Zion Suzuki", "Ko Itakura", "Wataru Endo", "Takefusa Kubo", "Kaoru Mitoma"],
-  india: ["Gurpreet Sandhu", "Sandesh Jhingan", "Sahal Abdul Samad", "Sunil Chhetri", "Liston Colaco"],
+  argentina: ["Emiliano Martínez", "Gerónimo Rulli", "Cristian Romero", "Nicolás Otamendi", "Lisandro Martínez", "Nahuel Molina", "Marcos Acuña", "Rodrigo De Paul", "Enzo Fernández", "Alexis Mac Allister", "Leandro Paredes", "Lionel Messi", "Julián Álvarez", "Lautaro Martínez", "Ángel Di María"],
+  brazil: ["Alisson", "Ederson", "Marquinhos", "Thiago Silva", "Éder Militão", "Danilo", "Casemiro", "Bruno Guimarães", "Lucas Paquetá", "Vinícius Jr.", "Rodrygo", "Raphinha", "Neymar", "Richarlison", "Gabriel Jesus"],
+  france: ["Mike Maignan", "Alphonse Areola", "William Saliba", "Dayot Upamecano", "Jules Koundé", "Theo Hernández", "Aurélien Tchouaméni", "Eduardo Camavinga", "Adrien Rabiot", "Antoine Griezmann", "Kylian Mbappé", "Ousmane Dembélé", "Marcus Thuram", "Randal Kolo Muani"],
+  germany: ["Manuel Neuer", "Marc-André ter Stegen", "Antonio Rüdiger", "Jonathan Tah", "Joshua Kimmich", "Pascal Groß", "İlkay Gündoğan", "Toni Kroos", "Jamal Musiala", "Florian Wirtz", "Leroy Sané", "Kai Havertz", "Niclas Füllkrug"],
+  england: ["Jordan Pickford", "Aaron Ramsdale", "John Stones", "Harry Maguire", "Kyle Walker", "Luke Shaw", "Declan Rice", "Jude Bellingham", "Phil Foden", "Harry Kane", "Bukayo Saka", "Marcus Rashford", "Cole Palmer"],
+  portugal: ["Diogo Costa", "Rui Patrício", "Rúben Dias", "Pepe", "João Cancelo", "Nuno Mendes", "Bernardo Silva", "Bruno Fernandes", "Vitinha", "João Félix", "Cristiano Ronaldo", "Rafael Leão", "Diogo Jota"],
+  spain: ["Unai Simón", "David Raya", "Aymeric Laporte", "Robin Le Normand", "Dani Carvajal", "Marc Cucurella", "Rodri", "Pedri", "Fabián Ruiz", "Lamine Yamal", "Nico Williams", "Álvaro Morata", "Mikel Oyarzabal"],
+  netherlands: ["Bart Verbruggen", "Justin Bijlow", "Virgil van Dijk", "Stefan de Vrij", "Denzel Dumfries", "Nathan Aké", "Frenkie de Jong", "Tijjani Reijnders", "Xavi Simons", "Cody Gakpo", "Memphis Depay", "Wout Weghorst"],
+  belgium: ["Koen Casteels", "Matz Sels", "Wout Faes", "Jan Vertonghen", "Timothy Castagne", "Arthur Theate", "Kevin De Bruyne", "Youri Tielemans", "Amadou Onana", "Romelu Lukaku", "Jérémy Doku", "Leandro Trossard"],
+  croatia: ["Dominik Livaković", "Ivica Ivušić", "Joško Gvardiol", "Joško Sutalo", "Domagoj Vida", "Borna Sosa", "Luka Modrić", "Mateo Kovačić", "Marcelo Brozović", "Andrej Kramarić", "Ivan Perišić", "Bruno Petković"],
+  morocco: ["Yassine Bounou", "Munir Mohamedi", "Achraf Hakimi", "Romain Saïss", "Nayef Aguerd", "Noussair Mazraoui", "Sofyan Amrabat", "Azzedine Ounahi", "Selim Amallah", "Hakim Ziyech", "Youssef En-Nesyri", "Sofiane Boufal"],
+  japan: ["Zion Suzuki", "Daniel Schmidt", "Ko Itakura", "Shogo Taniguchi", "Hiroki Ito", "Takehiro Tomiyasu", "Wataru Endo", "Hidemasa Morita", "Daichi Kamada", "Takefusa Kubo", "Kaoru Mitoma", "Ritsu Doan", "Ayase Ueda"],
+  india: ["Gurpreet Singh Sandhu", "Amrinder Singh", "Sandesh Jhingan", "Anwar Ali", "Akash Mishra", "Rahul Bheke", "Anirudh Thapa", "Suresh Singh", "Brandon Fernandes", "Sahal Abdul Samad", "Sunil Chhetri", "Liston Colaco", "Manvir Singh", "Ishan Pandita"],
 };
 
-const clubs = ["Real Madrid", "Manchester City", "Barcelona", "Bayern Munich", "PSG", "Arsenal", "Liverpool", "Inter Milan"];
+const clubs = [
+  "Real Madrid", "Manchester City", "Barcelona", "Bayern Munich", "PSG",
+  "Arsenal", "Liverpool", "Inter Milan", "Atlético Madrid", "Juventus",
+  "Chelsea", "Tottenham", "Borussia Dortmund", "AC Milan", "Napoli",
+];
+
+/** Canonical 23-man squad shape: 3 GK, 8 DF, 8 MF, 4 FW. */
+const SQUAD_POSITIONS: Position[] = [
+  "GK", "GK", "GK",
+  "DF", "DF", "DF", "DF", "DF", "DF", "DF", "DF",
+  "MF", "MF", "MF", "MF", "MF", "MF", "MF", "MF",
+  "FW", "FW", "FW", "FW",
+];
 
 export const PLAYERS_BY_TEAM: Record<string, Player[]> = Object.fromEntries(
   TEAMS.map((t) => {
-    const names = sampleNames[t.slug] ?? [
-      `${t.code} #1`, `${t.code} #4`, `${t.code} #8`, `${t.code} #10`, `${t.code} #11`,
-    ];
-    const positions: Position[] = ["GK", "DF", "MF", "FW", "FW"];
+    const known = sampleNames[t.slug] ?? [];
+    const names = SQUAD_POSITIONS.map((pos, i) =>
+      known[i] ?? `${t.code} ${pos} ${String(i + 1).padStart(2, "0")}`
+    );
     return [
       t.slug,
-      names.map((name, i) => ({
-        id: `${t.slug}-${i}`,
-        name,
-        position: positions[i],
-        club: clubs[(i * 3 + name.length) % clubs.length],
-        goals: i === 3 || i === 4 ? 4 + ((name.length * 3) % 7) : i === 2 ? 2 : 0,
-        assists: i === 2 || i === 3 ? 3 + (name.length % 4) : 1,
-        appearances: 10 + (name.length % 6),
-      })),
+      names.map((name, i) => {
+        const pos = SQUAD_POSITIONS[i];
+        const seed = name.length + i;
+        return {
+          id: `${t.slug}-${i}`,
+          name,
+          position: pos,
+          club: clubs[(i * 3 + seed) % clubs.length],
+          goals: pos === "FW" ? 3 + (seed % 8) : pos === "MF" ? seed % 4 : 0,
+          assists: pos === "MF" || pos === "FW" ? 1 + (seed % 5) : 0,
+          appearances: 8 + (seed % 12),
+        };
+      }),
     ];
   })
 );

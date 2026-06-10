@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Send, Users, Flame, MoreVertical, Flag, X, Shield, VolumeX, UserCheck, Eye } from "lucide-react";
+import { Send, Users, Flame, MoreVertical, Flag, X, Shield, VolumeX, UserCheck, Eye, Smile } from "lucide-react";
 import { useFan } from "@/hooks/useFan";
 import { getTeam, teamGradient } from "@/data/teams";
 import { liveMatch } from "@/data/matches";
@@ -57,7 +57,24 @@ function Arena() {
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const lastSentRef = useRef(0);
   const lastMessageTextRef = useRef("");
-  const endRef = useRef<HTMLDivElement>(null);
+  
+  // Custom scroll refs and states
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [hasNewMessages, setHasNewMessages] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showRulesModal, setShowRulesModal] = useState(false);
+
+  // Auto-scroll to newest message helper
+  const scrollToBottomInstant = () => {
+    const container = chatContainerRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+      setHasNewMessages(false);
+      setIsAtBottom(true);
+    }
+  };
 
   // 1. FETCH HISTORICAL MESSAGES ON MOUNT
   useEffect(() => {
@@ -77,6 +94,10 @@ function Arena() {
         } else if (data) {
           // Reverse to show chronologically (oldest at top, newest at bottom)
           setMessages(data.reverse());
+          // Auto-scroll to newest message
+          setTimeout(() => {
+            scrollToBottomInstant();
+          }, 100);
         }
       } catch (err) {
         console.error("Exception loading chat history:", err);
@@ -107,10 +128,32 @@ function Arena() {
         if (payload.eventType === "INSERT") {
           const incoming = payload.new as Msg;
           setMessages((prev) => {
-            // Avoid duplicates
-            if (prev.some((msg) => msg.id === incoming.id)) return prev;
-            return [...prev.slice(-199), incoming];
+            // Deduplicate optimistic messages
+            const filtered = prev.filter(
+              (msg) => !(msg.id.startsWith("temp_") && msg.username === incoming.username && msg.message === incoming.message)
+            );
+            if (filtered.some((msg) => msg.id === incoming.id)) return filtered;
+            return [...filtered.slice(-199), incoming];
           });
+
+          // Check if user is scrolled up on incoming new messages from other users
+          setTimeout(() => {
+            const container = chatContainerRef.current;
+            if (container) {
+              const mine = incoming.username === fan?.username;
+              const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+              
+              if (mine || nearBottom) {
+                // Auto-scroll to newest message
+                container.scrollTop = container.scrollHeight;
+                setIsAtBottom(true);
+                setHasNewMessages(false);
+              } else {
+                // Prevent forced scrolling while user reads older messages
+                setHasNewMessages(true);
+              }
+            }
+          }, 50);
         } else if (payload.eventType === "UPDATE") {
           const updated = payload.new as Msg;
           setMessages((prev) =>
@@ -159,10 +202,7 @@ function Arena() {
     };
   }, [fan?.id, fan?.username, fan?.teamSlug]);
 
-  // Scroll to bottom when new messages arrive
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
+
 
   // 3. ANTI-ABUSE & SPAM PREVENTION LOGIC
   const validateAndSend = async () => {
@@ -214,6 +254,29 @@ function Arena() {
     lastSentRef.current = now;
     lastMessageTextRef.current = body;
 
+    const tempId = `temp_${Date.now()}`;
+    const optimisticMsg: Msg = {
+      id: tempId,
+      user_id: fan.id,
+      device_id: fan.deviceId,
+      username: fan.username,
+      team: fan.teamSlug,
+      message: body,
+      reported_count: 0,
+      status: "NORMAL" as const,
+      created_at: new Date().toISOString(),
+    };
+
+    // Optimistically insert message instantly in local state
+    setMessages((prev) => [...prev.slice(-199), optimisticMsg]);
+    
+    // Clear input instantly and keep focus
+    setText("");
+    setTimeout(() => {
+      inputRef.current?.focus();
+      scrollToBottomInstant();
+    }, 20);
+
     const payload = {
       user_id: fan.id,
       device_id: fan.deviceId,
@@ -230,11 +293,13 @@ function Arena() {
       if (error) {
         console.error("Error sending message:", error);
         toast.error("Stadia connection error. Failed to send.");
-      } else {
-        setText("");
+        // Rollback optimistic message if failed
+        setMessages((prev) => prev.filter((msg) => msg.id !== tempId));
       }
     } catch (err) {
       console.error("Exception sending message:", err);
+      // Rollback optimistic message if failed
+      setMessages((prev) => prev.filter((msg) => msg.id !== tempId));
     }
   };
 
@@ -283,6 +348,41 @@ function Arena() {
     setReportTarget(null);
   };
 
+  const handleEmojiClick = (emoji: string) => {
+    const start = inputRef.current?.selectionStart ?? text.length;
+    const end = inputRef.current?.selectionEnd ?? text.length;
+    const newText = text.substring(0, start) + emoji + text.substring(end);
+    setText(newText);
+    setShowEmojiPicker(false);
+    
+    // Focus back and set cursor position
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+        const nextCursorPos = start + emoji.length;
+        inputRef.current.setSelectionRange(nextCursorPos, nextCursorPos);
+      }
+    }, 50);
+  };
+
+  // Prevent forced scrolling while user reads older messages
+  const handleScroll = () => {
+    // Prevent forced scrolling while user reads older messages
+    // Maintain sticky typing bar on mobile
+    // Handle keyboard-safe area
+    const container = chatContainerRef.current;
+    if (!container) return;
+
+    // Check if user is scrolled up by comparing scrollTop + clientHeight with scrollHeight
+    // Using a threshold of 150px to determine if they are "near bottom"
+    const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+    setIsAtBottom(nearBottom);
+    
+    if (nearBottom) {
+      setHasNewMessages(false);
+    }
+  };
+
   // FUTURE-READY ADMIN CONTROLS (Structure Placeholder)
   const handleAdminAction = async (action: "delete" | "mute" | "ban" | "restore", targetId: string) => {
     // Check role or authorization locally/backend before proceeding
@@ -311,172 +411,279 @@ function Arena() {
   ];
 
   return (
-    <div className="mx-auto grid max-w-7xl gap-6 px-4 py-8 md:px-6 lg:grid-cols-[1fr_320px] relative">
+    <div className="mx-auto max-w-7xl px-4 py-6 md:px-6 relative space-y-6 flex flex-col h-[calc(100dvh-4rem)] md:h-auto overflow-hidden md:overflow-visible">
       {/* Stadium grass textures and lighting effects */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(0,120,60,0.15),transparent)] pointer-events-none" />
 
-      {/* Main Chat Interface */}
-      <section className="flex min-h-[75vh] max-h-[85vh] flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#081511]/90 shadow-2xl relative">
-        <div className="absolute inset-x-0 top-0 h-1/4 bg-gradient-to-b from-emerald-950/20 to-transparent pointer-events-none" />
-
-        {/* Live Match Floodlight Header */}
-        <div className="relative overflow-hidden border-b border-white/10 p-5 bg-[#0a1b15]/80 backdrop-blur-md">
-          <div className="absolute inset-x-0 top-0 h-12 bg-gradient-to-r from-cyan-500/10 via-amber-500/10 to-emerald-500/10 blur-xl" />
-          <div className="relative flex flex-wrap items-center justify-between gap-3">
-            {m && home && away ? (
-              <div className="flex items-center gap-4">
-                <span className="live-dot text-[11px] font-bold uppercase tracking-widest text-live bg-live/15 px-2 py-0.5 rounded-full border border-live/30 animate-pulse">Live</span>
-                <span className="font-display text-xl text-white">{home.flag} {home.code}</span>
-                <span className="font-sport text-2xl font-extrabold text-white tabular-nums tracking-wider">{m.homeScore} – {m.awayScore}</span>
-                <span className="font-display text-xl text-white">{away.code} {away.flag}</span>
-                <span className="font-sport text-sm text-amber-500 font-semibold">{m.minute}'</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="font-display text-lg tracking-wide text-white uppercase">Global Fan Arena</span>
-              </div>
-            )}
-
-            <div className="flex items-center gap-3 text-xs text-slate-400">
-              <span className="inline-flex items-center gap-1.5 bg-white/5 px-2.5 py-1 rounded-full border border-white/5">
-                <Users className="h-3.5 w-3.5 text-emerald-400" />
-                <strong className="text-white font-bold">{online}</strong> fans inside
-              </span>
-              <span className="inline-flex items-center gap-1.5 bg-white/5 px-2.5 py-1 rounded-full border border-white/5">
-                <Flame className="h-3.5 w-3.5 text-orange animate-bounce" />
-                <strong className="text-white">{messages.length}</strong> chants
-              </span>
-            </div>
+      {/* TOP SECTION: Arena Header, Match Banner, Online Count, Fan Statistics, Rules Link */}
+      <div className="shrink-0 space-y-4">
+        {/* Arena Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-4">
+          <div>
+            <h1 className="font-display text-3xl md:text-4xl text-gradient-gold tracking-wide uppercase">Fan Arena</h1>
+            <p className="text-xs text-slate-400 font-medium">Join the live Malayalam-first digital stadium & cheer with thousands of fans.</p>
           </div>
-        </div>
-
-        {/* Message Transcript Container */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          {messages.length === 0 ? (
-            <div className="grid h-full place-items-center text-center text-slate-400">
-              <div className="space-y-3">
-                <div className="text-5xl animate-bounce">⚽</div>
-                <h3 className="text-white font-semibold">Stadium is silent!</h3>
-                <p className="text-xs max-w-xs leading-relaxed">Be the first to chant and spark the crowd atmosphere!</p>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {messages.map((msg) => (
-                <ChatBubble
-                  key={msg.id}
-                  msg={msg}
-                  mine={fan?.username === msg.username}
-                  onReact={(emoji) => {
-                    // Locally boost reactions for immediate premium visual response
-                    toast.success(`Reacted with ${emoji}`);
-                  }}
-                  onReport={() => setReportTarget(msg)}
-                  onAdminAction={handleAdminAction}
-                />
-              ))}
-              <div ref={endRef} />
-            </div>
-          )}
-        </div>
-
-        {/* Composer Input Field */}
-        <div className="border-t border-white/10 p-4 bg-[#091814]/90 backdrop-blur-md">
-          <div className="flex items-center gap-3">
-            <input
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") validateAndSend();
-              }}
-              placeholder={fan ? `Chant for ${getTeam(fan.teamSlug)?.name ?? "your team"}...` : "Join the stadium first to send chants"}
-              disabled={!fan}
-              maxLength={300}
-              className="w-full rounded-2xl bg-white/5 px-5 py-3 text-sm text-white outline-none border border-white/10 focus:border-gold focus:ring-1 focus:ring-gold/30 disabled:opacity-50 placeholder-slate-400 transition"
-            />
+          <div className="flex items-center gap-2 text-xs">
+            <span className="inline-flex items-center gap-1.5 bg-emerald-950/40 border border-emerald-500/20 px-3 py-1.5 rounded-full text-slate-300 font-semibold">
+              <Users className="h-3.5 w-3.5 text-emerald-400" />
+              <strong className="text-white font-bold">{online}</strong> online
+            </span>
             <button
-              onClick={validateAndSend}
-              disabled={!fan || !text.trim()}
-              className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gold text-gold-foreground font-bold hover:bg-gold-light disabled:opacity-40 shadow-lg transition active:scale-95"
+              onClick={() => setShowRulesModal(true)}
+              className="inline-flex items-center gap-1.5 bg-white/5 border border-white/5 px-3 py-1.5 rounded-full text-gold hover:bg-white/10 transition font-semibold cursor-pointer"
             >
-              <Send className="h-5 w-5" />
+              <Shield className="h-3.5 w-3.5" />
+              Community Rules
             </button>
           </div>
-          {fan && (
-            <div className="mt-2 flex justify-between items-center px-1 text-[10px] text-slate-500">
-              <span>Press enter to send</span>
-              <span className={text.length > 250 ? "text-amber-500" : ""}>{text.length}/300 chars</span>
-            </div>
-          )}
         </div>
-      </section>
 
-      {/* Sidebar Analytics & Moderation Info */}
-      <aside className="space-y-4">
-        {/* Total Fans Breakdown */}
-        <div className="rounded-3xl border border-white/10 bg-[#081511]/80 p-5 shadow-lg backdrop-blur-sm">
-          <h3 className="text-xs uppercase tracking-widest text-gold font-bold">🏟️ Live Fan Presence</h3>
-          <div className="mt-4 space-y-3">
-            {featuredTeams.map((t) => {
-              const count = teamOnlineCounts[t.slug] || 0;
-              return (
-                <div key={t.slug} className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-2 text-white">
-                    <span className="text-lg">{t.flag}</span>
-                    <span>{t.name}</span>
-                  </span>
-                  <span className="bg-emerald-950/40 text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded-full text-xs font-semibold tabular-nums">
-                    {count} online
-                  </span>
+        {/* Current Match Banner */}
+        {m && home && away ? (
+          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-r from-emerald-950/30 via-black/25 to-emerald-950/30 p-4 shadow-lg">
+            <div className="absolute inset-y-0 left-0 w-1.5 bg-live" />
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pl-3">
+              <div className="flex items-center gap-3">
+                <span className="live-dot text-[10px] font-bold uppercase tracking-widest text-live bg-live/10 px-2 py-0.5 rounded border border-live/20 animate-pulse">Live Match</span>
+                <div className="flex items-center gap-3">
+                  <span className="font-display text-lg text-white">{home.flag} {home.name}</span>
+                  <span className="font-sport text-xl font-bold text-white tabular-nums">{m.homeScore} – {m.awayScore}</span>
+                  <span className="font-display text-lg text-white">{away.code} {away.flag}</span>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Live Match Info */}
-        <div className="rounded-3xl border border-white/10 bg-[#081511]/80 p-5 shadow-lg backdrop-blur-sm">
-          <h3 className="text-xs uppercase tracking-widest text-gold font-bold">Current Match</h3>
-          {m && home && away ? (
-            <div className="mt-4 space-y-3 text-sm">
-              <div className="flex items-center justify-between text-white">
-                <span className="flex items-center gap-2">
-                  <span>{home.flag}</span>
-                  <span className="font-semibold">{home.name}</span>
-                </span>
-                <span className="font-sport font-bold text-lg text-gold">{m.homeScore}</span>
               </div>
-              <div className="flex items-center justify-between text-white">
-                <span className="flex items-center gap-2">
-                  <span>{away.flag}</span>
-                  <span className="font-semibold">{away.name}</span>
-                </span>
-                <span className="font-sport font-bold text-lg text-gold">{m.awayScore}</span>
-              </div>
-              <div className="pt-2 border-t border-white/5 text-[11px] text-slate-400 flex justify-between">
-                <span>📍 {m.venue}</span>
-                <span className="text-amber-500 font-semibold">{m.minute}' played</span>
+              <div className="flex items-center gap-3 text-xs">
+                <span className="font-sport text-amber-500 font-semibold bg-amber-500/10 px-2.5 py-0.5 rounded border border-amber-500/20">{m.minute}' Played</span>
+                <span className="text-slate-400">📍 {m.venue}</span>
               </div>
             </div>
-          ) : (
-            <p className="mt-3 text-xs text-slate-400">No live matches in progress right now.</p>
-          )}
-        </div>
-
-        {/* Community Moderation Info Box */}
-        <div className="rounded-3xl border border-white/10 bg-[#081511]/80 p-5 text-xs text-slate-400 leading-relaxed shadow-lg backdrop-blur-sm space-y-2">
-          <div className="flex items-center gap-2 text-gold font-semibold uppercase tracking-wider text-[10px]">
-            <Shield className="h-3.5 w-3.5" />
-            <span>Community Rules</span>
           </div>
-          <p>This arena runs on community self-moderation. Any user can flag messages containing spam, trolling, or abusive text.</p>
-          <ul className="list-disc pl-4 space-y-1 mt-1 text-[11px]">
-            <li><strong>{MODERATION.REVIEW_THRESHOLD}+ reports</strong> flags message under review.</li>
-            <li><strong>{MODERATION.HIDE_THRESHOLD}+ reports</strong> hides the message automatically.</li>
-          </ul>
+        ) : (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3 text-center text-xs text-slate-400">
+            🏟️ Global Fan Arena is open. Share your chants below!
+          </div>
+        )}
+
+        {/* Fan Statistics */}
+        <div className="flex flex-wrap items-center gap-2 text-xs py-1.5 px-3 rounded-xl bg-white/[0.02] border border-white/5">
+          <span className="text-slate-400 uppercase tracking-widest text-[10px] font-bold">Stadium Support:</span>
+          {featuredTeams.map((t) => {
+            const count = teamOnlineCounts[t.slug] || 0;
+            return (
+              <span key={t.slug} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/5 border border-white/5 text-slate-300">
+                <span className="text-sm">{t.flag}</span>
+                <span className="font-semibold">{t.name}:</span>
+                <span className="text-emerald-400 font-bold tabular-nums">{count}</span>
+              </span>
+            );
+          })}
         </div>
-      </aside>
+      </div>
+
+      {/* BOTTOM SECTION: Chat Box & Sidebar Grid */}
+      <div className="flex-1 min-h-0 grid gap-6 lg:grid-cols-[1fr_320px] relative">
+        {/* Main Chat Interface */}
+        <section className="flex-1 flex flex-col min-h-0 overflow-hidden rounded-3xl border border-white/10 bg-[#081511]/90 shadow-2xl relative">
+          <div className="absolute inset-x-0 top-0 h-1/4 bg-gradient-to-b from-emerald-950/20 to-transparent pointer-events-none" />
+
+          {/* Message Transcript Container */}
+          <div 
+            ref={chatContainerRef}
+            onScroll={handleScroll}
+            className="flex-1 overflow-y-auto p-5 space-y-4 scroll-smooth"
+          >
+            {messages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center text-slate-400 p-8">
+                <div className="space-y-4 max-w-sm">
+                  {/* stadium themed illustration */}
+                  <svg
+                    className="mx-auto h-24 w-24 text-emerald-500/20 animate-pulse"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeDasharray="3 3" />
+                    <path d="M12 2a10 10 0 0 0-10 10c0 1.25.23 2.44.65 3.54L5 15l2-1 2 2 1-3 2 1 2-2 2 3 1-2 1.35.46c.42-1.1.65-2.29.65-3.54A10 10 0 0 0 12 2Z" fill="currentColor" fillOpacity="0.05" />
+                    <path d="M12 5v14M5 12h14" strokeWidth="1" opacity="0.3" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                  <h3 className="text-white text-lg font-bold">Stadium is silent!</h3>
+                  <p className="text-xs text-slate-400">Be the first fan to start the conversation.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {messages.map((msg) => (
+                  <ChatBubble
+                    key={msg.id}
+                    msg={msg}
+                    mine={fan?.username === msg.username}
+                    onReact={(emoji) => {
+                      toast.success(`Reacted with ${emoji}`);
+                    }}
+                    onReport={() => setReportTarget(msg)}
+                    onAdminAction={handleAdminAction}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Floating Button to scroll to newest message */}
+          {hasNewMessages && (
+            <button
+              onClick={() => {
+                const container = chatContainerRef.current;
+                if (container) {
+                  container.scrollTo({
+                    top: container.scrollHeight,
+                    behavior: "smooth"
+                  });
+                  setHasNewMessages(false);
+                  setIsAtBottom(true);
+                }
+              }}
+              className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 rounded-full bg-gold hover:bg-gold-light text-gold-foreground font-semibold px-4 py-2 text-xs shadow-lg animate-bounce transition active:scale-95 cursor-pointer"
+            >
+              <span>↓ New Messages</span>
+            </button>
+          )}
+
+          {/* Composer Input Field */}
+          {/* Maintain sticky typing bar on mobile */}
+          {/* Handle keyboard-safe area */}
+          <div 
+            className="border-t border-white/10 p-4 bg-[#091814]/90 backdrop-blur-md relative shrink-0"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
+          >
+            <div className="flex items-center gap-3">
+              {/* Emoji Button */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowEmojiPicker((v) => !v)}
+                  className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/5 border border-white/10 text-slate-400 hover:text-white transition active:scale-95"
+                >
+                  <Smile className="h-5 w-5" />
+                </button>
+                {showEmojiPicker && (
+                  <div className="absolute bottom-14 left-0 z-50 bg-[#0b1f1a] border border-white/10 p-3 rounded-2xl shadow-2xl flex gap-2 flex-wrap min-w-[220px] max-w-[280px]">
+                    {["⚽", "🏆", "🔥", "👏", "😂", "📣", "🙌", "🥳", "🤩", "🏟️"].map((e) => (
+                      <button
+                        key={e}
+                        type="button"
+                        onClick={() => handleEmojiClick(e)}
+                        className="text-lg hover:scale-125 transition p-1 cursor-pointer"
+                      >
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <input
+                ref={inputRef}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") validateAndSend();
+                }}
+                placeholder={fan ? `Chant for ${getTeam(fan.teamSlug)?.name ?? "your team"}...` : "Join the stadium first to send chants"}
+                disabled={!fan}
+                maxLength={300}
+                className="w-full rounded-2xl bg-white/5 px-5 py-3 md:text-sm text-base text-white outline-none border border-white/10 focus:border-gold focus:ring-1 focus:ring-gold/30 disabled:opacity-50 placeholder-slate-400 transition"
+              />
+              <button
+                onClick={validateAndSend}
+                disabled={!fan || !text.trim()}
+                className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gold text-gold-foreground font-bold hover:bg-gold-light disabled:opacity-40 shadow-lg transition active:scale-95"
+              >
+                <Send className="h-5 w-5" />
+              </button>
+            </div>
+            {fan && (
+              <div className="mt-2 flex justify-between items-center px-1 text-[10px] text-slate-500">
+                <span>Press enter to send</span>
+                <span className={text.length > 250 ? "text-amber-500" : ""}>{text.length}/300 chars</span>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Sidebar Analytics & Moderation Info */}
+        <aside className="hidden lg:block space-y-4">
+          {/* Total Fans Breakdown */}
+          <div className="rounded-3xl border border-white/10 bg-[#081511]/80 p-5 shadow-lg backdrop-blur-sm">
+            <h3 className="text-xs uppercase tracking-widest text-gold font-bold">🏟️ Live Fan Presence</h3>
+            <div className="mt-4 space-y-3">
+              {featuredTeams.map((t) => {
+                const count = teamOnlineCounts[t.slug] || 0;
+                return (
+                  <div key={t.slug} className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-2 text-white">
+                      <span className="text-lg">{t.flag}</span>
+                      <span>{t.name}</span>
+                    </span>
+                    <span className="bg-emerald-950/40 text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded-full text-xs font-semibold tabular-nums">
+                      {count} online
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Live Match Info */}
+          <div className="rounded-3xl border border-white/10 bg-[#081511]/80 p-5 shadow-lg backdrop-blur-sm">
+            <h3 className="text-xs uppercase tracking-widest text-gold font-bold">Current Match</h3>
+            {m && home && away ? (
+              <div className="mt-4 space-y-3 text-sm">
+                <div className="flex items-center justify-between text-white">
+                  <span className="flex items-center gap-2">
+                    <span>{home.flag}</span>
+                    <span className="font-semibold">{home.name}</span>
+                  </span>
+                  <span className="font-sport font-bold text-lg text-gold">{m.homeScore}</span>
+                </div>
+                <div className="flex items-center justify-between text-white">
+                  <span className="flex items-center gap-2">
+                    <span>{away.flag}</span>
+                    <span className="font-semibold">{away.name}</span>
+                  </span>
+                  <span className="font-sport font-bold text-lg text-gold">{m.awayScore}</span>
+                </div>
+                <div className="pt-2 border-t border-white/5 text-[11px] text-slate-400 flex justify-between">
+                  <span>📍 {m.venue}</span>
+                  <span className="text-amber-500 font-semibold">{m.minute}' played</span>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-3 text-xs text-slate-400">No live matches in progress right now.</p>
+            )}
+          </div>
+
+          {/* Community Rules Info Box */}
+          <div className="rounded-3xl border border-white/10 bg-[#081511]/80 p-5 text-xs text-slate-400 leading-relaxed shadow-lg backdrop-blur-sm space-y-2">
+            <div className="flex items-center gap-2 text-gold font-semibold uppercase tracking-wider text-[10px]">
+              <Shield className="h-3.5 w-3.5" />
+              <span>Community Rules</span>
+            </div>
+            <p>This arena runs on community self-moderation. Any user can flag messages containing spam, trolling, or abusive text.</p>
+            <ul className="list-disc pl-4 space-y-1 mt-1 text-[11px]">
+              <li><strong>{MODERATION.REVIEW_THRESHOLD}+ reports</strong> flags message under review.</li>
+              <li><strong>{MODERATION.HIDE_THRESHOLD}+ reports</strong> hides the message automatically.</li>
+            </ul>
+          </div>
+        </aside>
+      </div>
+
+      {/* Rules Modal Triggered by Header */}
+      {showRulesModal && (
+        <RulesModal onClose={() => setShowRulesModal(false)} />
+      )}
 
       {/* Report Modal Popup */}
       {reportTarget && (
@@ -688,6 +895,45 @@ function ReportModal({
             className="rounded-full bg-rose-600 hover:bg-rose-500 px-5 py-2 text-xs font-semibold text-white disabled:opacity-40 transition active:scale-95 shadow-md"
           >
             Submit Report
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────
+ * RULES MODAL DIALOG COMPONENT
+ * ────────────────────────────────────────────────────────────── */
+function RulesModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4 backdrop-blur-sm animate-fade-in">
+      <div className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-950 p-6 shadow-2xl space-y-4">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-2">
+            <Shield className="h-5 w-5 text-gold" />
+            <h3 className="font-display text-xl text-white">Community Rules</h3>
+          </div>
+          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-white/10 text-slate-400 transition">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="text-sm text-slate-300 space-y-3">
+          <p>Welcome to Kerala's digital stadium! To keep the atmosphere exciting and respectful, please follow these community rules:</p>
+          <ul className="list-disc pl-5 space-y-2 text-xs text-slate-400">
+            <li><strong>Chant Responsibly:</strong> Keep it fun, passionate, and football-related. No hate speech, trolling, or insults.</li>
+            <li><strong>No Spamming:</strong> Rate limit is 3 seconds per message. Repeated messages or emoji floods will be blocked automatically.</li>
+            <li><strong>Self-Moderation:</strong> Flag messages that violate rules. 3 reports flag a message for review, and 5 reports hide it automatically.</li>
+          </ul>
+        </div>
+
+        <div className="flex justify-end pt-2">
+          <button
+            onClick={onClose}
+            className="rounded-full bg-gold hover:bg-gold-light text-gold-foreground font-semibold px-5 py-2 text-xs transition active:scale-95 shadow-md"
+          >
+            I Understand
           </button>
         </div>
       </div>

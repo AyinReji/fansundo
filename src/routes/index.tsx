@@ -3,8 +3,10 @@ import { ArrowRight, Calendar, Flame, Trophy, Users } from "lucide-react";
 import { LiveCapsule } from "@/components/site/LiveCapsule";
 import { BentoTile } from "@/components/site/BentoTile";
 import { TeamCard } from "@/components/site/TeamCard";
+import { FlagArt, TeamBadge } from "@/components/site/FlagArt";
+import { useTeamPopup } from "@/components/site/TeamPopupProvider";
 import { useFan } from "@/hooks/useFan";
-import { getTeam, TEAMS, teamGradient } from "@/data/teams";
+import { getTeam, TEAMS } from "@/data/teams";
 import { nextMatchForTeam, MATCHES } from "@/data/matches";
 import { LEADERBOARD } from "@/data/leaderboard";
 import { topScorers } from "@/data/players";
@@ -28,6 +30,7 @@ export const Route = createFileRoute("/")({
 
 function Home() {
   const fan = useFan();
+  const { openBySlug } = useTeamPopup();
   const myTeam = fan ? getTeam(fan.teamSlug) : null;
   const myNext = myTeam ? nextMatchForTeam(myTeam.slug) : null;
   const myScorers = myTeam ? topScorers(myTeam.slug) : [];
@@ -78,16 +81,18 @@ function Home() {
       {/* ====== YOUR TEAM ====== */}
       {fan && myTeam && (
         <section className="mx-auto max-w-7xl px-4 py-16 md:px-6">
-          <SectionTitle caption="Your team" title={myTeam.name} extra={<Link to="/teams/$slug" params={{ slug: myTeam.slug }} className="text-sm font-semibold text-gold hover:underline">Team page →</Link>} />
+          <SectionTitle caption="Your team" title={myTeam.name} extra={<button onClick={() => openBySlug(myTeam.slug)} className="text-sm font-semibold text-gold hover:underline">Open team →</button>} />
           <div className="grid gap-4 md:grid-cols-3">
-            <div className="relative overflow-hidden rounded-3xl border border-border p-6 shadow-stadium md:col-span-2"
-              style={{ background: teamGradient(myTeam) }}>
-              <div className="absolute inset-0 bg-black/55" />
-              <div className="relative grid gap-6 sm:grid-cols-2">
-                <div>
-                  <div className="text-6xl">{myTeam.flag}</div>
-                  <div className="mt-3 font-display text-3xl text-white">{myTeam.name}</div>
-                  <div className="mt-1 inline-flex items-center gap-1 text-xs text-white/80">
+            <button onClick={() => openBySlug(myTeam.slug)} className="group relative overflow-hidden rounded-3xl border border-border text-left shadow-stadium md:col-span-2">
+              <div className="aspect-[16/9] w-full md:aspect-auto md:h-full md:min-h-[260px]">
+                <FlagArt slug={myTeam.slug} className="h-full w-full" />
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-tr from-black/85 via-black/55 to-transparent" />
+              <div className="absolute inset-0 grid gap-6 p-6 sm:grid-cols-2">
+                <div className="self-end text-white">
+                  <div className="font-display text-3xl drop-shadow">{myTeam.name}</div>
+                  <div className="text-sm italic text-white/80">{myTeam.nickname}</div>
+                  <div className="mt-2 inline-flex items-center gap-1 text-xs text-white/85">
                     <Users className="h-3 w-3" /> {myTeam.supporters.toLocaleString()} supporters
                   </div>
                   <div className="mt-4 flex gap-1.5">
@@ -96,11 +101,11 @@ function Home() {
                     ))}
                   </div>
                 </div>
-                <div className="text-white">
+                <div className="self-end text-white">
                   <div className="text-[10px] uppercase tracking-widest text-white/70">Top scorers</div>
                   <ul className="mt-2 space-y-2">
                     {myScorers.map((p) => (
-                      <li key={p.id} className="flex items-center justify-between rounded-lg bg-black/30 px-3 py-2 text-sm">
+                      <li key={p.id} className="flex items-center justify-between rounded-lg bg-black/45 px-3 py-2 text-sm">
                         <span className="truncate">{p.name}</span>
                         <span className="font-sport font-bold">{p.goals}</span>
                       </li>
@@ -108,7 +113,7 @@ function Home() {
                   </ul>
                 </div>
               </div>
-            </div>
+            </button>
             <div className="rounded-3xl border border-border glass p-6">
               <div className="text-[10px] uppercase tracking-widest text-gold">Next Match</div>
               {myNext ? (
@@ -167,9 +172,11 @@ function Home() {
             return (
               <div key={r.rank} className="flex items-center gap-4 border-b border-border/60 px-4 py-3 last:border-0">
                 <div className="grid h-9 w-9 place-items-center rounded-full bg-gold/15 font-sport text-sm font-bold text-gold">{r.rank}</div>
-                <div className="text-xl">{t.flag}</div>
+                <button onClick={() => openBySlug(t.slug)} aria-label={t.name}>
+                  <TeamBadge slug={t.slug} size={28} />
+                </button>
                 <div className="flex-1 truncate font-semibold">{r.username}</div>
-                <div className="hidden text-xs text-muted-foreground sm:block">{t.name}</div>
+                <button onClick={() => openBySlug(t.slug)} className="hidden text-xs text-muted-foreground hover:text-gold sm:block">{t.name}</button>
                 <div className="font-sport text-lg font-bold tabular-nums">{r.points.toLocaleString()}</div>
               </div>
             );
@@ -203,9 +210,9 @@ function Home() {
                 </div>
                 <div className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-2">
-                    <span className="text-lg">{h.flag}</span>
+                    <button onClick={() => openBySlug(h.slug)} aria-label={h.name}><TeamBadge slug={h.slug} size={22} /></button>
                     <span className="font-sport font-bold tabular-nums">{m.homeScore} – {m.awayScore}</span>
-                    <span className="text-lg">{a.flag}</span>
+                    <button onClick={() => openBySlug(a.slug)} aria-label={a.name}><TeamBadge slug={a.slug} size={22} /></button>
                   </div>
                   <span className="text-xs text-muted-foreground">{m.stage}</span>
                 </div>
