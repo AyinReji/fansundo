@@ -352,7 +352,7 @@ function Arena() {
         </div>
 
         {/* Message Transcript Container */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-[url('/grass-pattern.png')] bg-repeat bg-opacity-5">
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {messages.length === 0 ? (
             <div className="grid h-full place-items-center text-center text-slate-400">
               <div className="space-y-3">
