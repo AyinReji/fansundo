@@ -1,10 +1,13 @@
+import { supabase } from "@/integrations/supabase/client";
+
 /**
  * Onboarding state (favorite team + username) — persisted to localStorage.
- * v1 is client-only; auth-backed profile sync is wired in a later pass.
+ * Syncs identity anonymously to Supabase database.
  */
 const KEY = "aaravam26:fan";
 
 export interface FanIdentity {
+  id: string;          // Generated userId (UUID)
   username: string;
   teamSlug: string;
   rulesAcceptedAt: string;
@@ -26,14 +29,33 @@ export function getFan(): FanIdentity | null {
   }
 }
 
-export function saveFan(input: Omit<FanIdentity, "rulesAcceptedAt" | "deviceId">): FanIdentity {
+export async function saveFan(input: Omit<FanIdentity, "rulesAcceptedAt" | "deviceId" | "id">): Promise<FanIdentity> {
   const existing = getFan();
   const next: FanIdentity = {
     ...input,
+    id: existing?.id ?? crypto.randomUUID(),
     rulesAcceptedAt: existing?.rulesAcceptedAt ?? new Date().toISOString(),
     deviceId: existing?.deviceId ?? newDeviceId(),
   };
+
+  // 1. Save to local storage for instant loading on return visits
   localStorage.setItem(KEY, JSON.stringify(next));
+
+  // 2. Persist identity to the Supabase database
+  try {
+    const { error } = await supabase.from("users").upsert({
+      id: next.id,
+      device_id: next.deviceId,
+      username: next.username,
+      selected_team: next.teamSlug,
+    });
+    if (error) {
+      console.error("[Onboarding] Failed to sync anonymous user profile to Supabase:", error);
+    }
+  } catch (err) {
+    console.error("[Onboarding] Error syncing anonymous user profile to Supabase:", err);
+  }
+
   window.dispatchEvent(new CustomEvent("aaravam:fan-updated"));
   return next;
 }

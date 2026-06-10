@@ -31,11 +31,13 @@ export function OnboardingDialog() {
 
   const userError = step === 2 ? validateUsername(username) : null;
 
-  const submit = () => {
+
+
+  const submit = async () => {
     if (!team) return;
     const err = validateUsername(username);
     if (err) { toast.error(err); return; }
-    saveFan({ username: username.trim(), teamSlug: team.slug });
+    await saveFan({ username: username.trim(), teamSlug: team.slug });
     toast.success(`Welcome to the arena, ${username}!`);
     setOpen(false);
   };
