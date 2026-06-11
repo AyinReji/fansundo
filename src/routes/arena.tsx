@@ -289,7 +289,25 @@ function Arena() {
 
     // Store in Supabase, Realtime channel will broadcast to us and others
     try {
-      const { error } = await supabase.from("messages").insert(payload);
+      let { error } = await supabase.from("messages").insert(payload);
+      
+      // Auto-heal: If user does not exist in the database (e.g. database changed/reset), sync user and retry
+      if (error && error.code === "23503") {
+        console.warn("User not found in database, attempting to sync identity and retry...");
+        const syncRes = await supabase.from("users").upsert({
+          id: fan.id,
+          device_id: fan.deviceId,
+          username: fan.username,
+          selected_team: fan.teamSlug,
+        });
+        
+        if (!syncRes.error) {
+          // Retry insertion
+          const retryRes = await supabase.from("messages").insert(payload);
+          error = retryRes.error;
+        }
+      }
+
       if (error) {
         console.error("Error sending message:", error);
         toast.error("Stadia connection error. Failed to send.");

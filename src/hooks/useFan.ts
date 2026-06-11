@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getFan, saveFan, type FanIdentity } from "@/lib/onboarding";
+import { supabase } from "@/integrations/supabase/client";
 
 /** Subscribes to fan identity changes broadcast via custom event. */
 export function useFan(): FanIdentity | null {
@@ -7,16 +8,31 @@ export function useFan(): FanIdentity | null {
   useEffect(() => {
     const checkAndRepair = async () => {
       const current = getFan();
-      if (current && !current.id) {
-        try {
-          const repaired = await saveFan({
-            username: current.username,
-            teamSlug: current.teamSlug,
-          });
-          setFan(repaired);
-        } catch (err) {
-          console.error("Error repairing fan identity:", err);
+      if (current) {
+        if (!current.id) {
+          try {
+            const repaired = await saveFan({
+              username: current.username,
+              teamSlug: current.teamSlug,
+            });
+            setFan(repaired);
+          } catch (err) {
+            console.error("Error repairing fan identity:", err);
+            setFan(current);
+          }
+        } else {
           setFan(current);
+          // Sync existing user to database in background in case it's a new DB or not synced
+          supabase.from("users").upsert({
+            id: current.id,
+            device_id: current.deviceId,
+            username: current.username,
+            selected_team: current.teamSlug,
+          }).then(({ error }) => {
+            if (error) {
+              console.error("Error syncing fan identity to database on mount:", error);
+            }
+          });
         }
       } else {
         setFan(current);
