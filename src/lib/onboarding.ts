@@ -38,23 +38,24 @@ export async function saveFan(input: Omit<FanIdentity, "rulesAcceptedAt" | "devi
     deviceId: existing?.deviceId ?? newDeviceId(),
   };
 
-  // 1. Save to local storage for instant loading on return visits
-  localStorage.setItem(KEY, JSON.stringify(next));
+  // 1. Persist identity to the Supabase database first
+  const { error } = await supabase.from("users").upsert({
+    id: next.id,
+    device_id: next.deviceId,
+    username: next.username,
+    selected_team: next.teamSlug,
+  });
 
-  // 2. Persist identity to the Supabase database
-  try {
-    const { error } = await supabase.from("users").upsert({
-      id: next.id,
-      device_id: next.deviceId,
-      username: next.username,
-      selected_team: next.teamSlug,
-    });
-    if (error) {
-      console.error("[Onboarding] Failed to sync anonymous user profile to Supabase:", error);
+  if (error) {
+    console.error("[Onboarding] Failed to sync anonymous user profile to Supabase:", error);
+    if (error.code === "23505") {
+      throw new Error("username_taken");
     }
-  } catch (err) {
-    console.error("[Onboarding] Error syncing anonymous user profile to Supabase:", err);
+    throw new Error("sync_failed");
   }
+
+  // 2. Save to local storage only if database sync succeeds
+  localStorage.setItem(KEY, JSON.stringify(next));
 
   window.dispatchEvent(new CustomEvent("aaravam:fan-updated"));
   return next;

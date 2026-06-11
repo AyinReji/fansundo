@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { getFan, saveFan, type FanIdentity } from "@/lib/onboarding";
+import { getFan, saveFan, clearFan, type FanIdentity } from "@/lib/onboarding";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 /** Subscribes to fan identity changes broadcast via custom event. */
 export function useFan(): FanIdentity | null {
@@ -31,6 +32,10 @@ export function useFan(): FanIdentity | null {
           }).then(({ error }) => {
             if (error) {
               console.error("Error syncing fan identity to database on mount:", error);
+              if (error.code === "23505") {
+                clearFan();
+                toast.error("Your username has been claimed by another fan. Please pick a new one.");
+              }
             }
           });
         }

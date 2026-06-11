@@ -41,9 +41,17 @@ export function OnboardingDialog() {
     if (!team) return;
     const err = validateUsername(username);
     if (err) { toast.error(err); return; }
-    await saveFan({ username: username.trim(), teamSlug: team.slug });
-    toast.success(`Welcome to the arena, ${username}!`);
-    setOpen(false);
+    try {
+      await saveFan({ username: username.trim(), teamSlug: team.slug });
+      toast.success(`Welcome to the arena, ${username}!`);
+      setOpen(false);
+    } catch (e: any) {
+      if (e.message === "username_taken") {
+        toast.error("This username is already taken. Please choose another one.");
+      } else {
+        toast.error("Failed to join the arena. Please try again.");
+      }
+    }
   };
 
   return (
