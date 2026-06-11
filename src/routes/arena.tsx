@@ -429,17 +429,17 @@ function Arena() {
   ];
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 md:px-6 relative space-y-6 flex flex-col h-[calc(100dvh-4rem)] md:h-auto overflow-hidden md:overflow-visible">
+    <div className="mx-auto max-w-7xl px-4 py-3 md:py-6 md:px-6 relative space-y-3 md:space-y-6 flex flex-col h-[calc(100dvh-4rem)] md:h-auto overflow-hidden md:overflow-visible">
       {/* Stadium grass textures and lighting effects */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(0,120,60,0.15),transparent)] pointer-events-none" />
 
       {/* TOP SECTION: Arena Header, Match Banner, Online Count, Fan Statistics, Rules Link */}
-      <div className="shrink-0 space-y-4">
+      <div className="shrink-0 space-y-2 md:space-y-4">
         {/* Arena Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 md:gap-3 border-b border-white/5 pb-2 md:pb-4">
           <div>
-            <h1 className="font-display text-3xl md:text-4xl text-gradient-gold tracking-wide uppercase">Fan Arena</h1>
-            <p className="text-xs text-slate-400 font-medium">Join the live Malayalam-first digital stadium & cheer with thousands of fans.</p>
+            <h1 className="font-display text-2xl md:text-4xl text-gradient-gold tracking-wide uppercase">Fan Arena</h1>
+            <p className="text-xs text-slate-400 font-medium hidden sm:block">Join the live Malayalam-first digital stadium & cheer with thousands of fans.</p>
           </div>
           <div className="flex items-center gap-2 text-xs">
             <span className="inline-flex items-center gap-1.5 bg-emerald-950/40 border border-emerald-500/20 px-3 py-1.5 rounded-full text-slate-300 font-semibold">
@@ -458,42 +458,45 @@ function Arena() {
 
         {/* Current Match Banner */}
         {m && home && away ? (
-          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-r from-emerald-950/30 via-black/25 to-emerald-950/30 p-4 shadow-lg">
+          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-r from-emerald-950/30 via-black/25 to-emerald-950/30 p-2.5 md:p-4 shadow-lg">
             <div className="absolute inset-y-0 left-0 w-1.5 bg-live" />
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pl-3">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-3 pl-3">
               <div className="flex items-center gap-3">
-                <span className="live-dot text-[10px] font-bold uppercase tracking-widest text-live bg-live/10 px-2 py-0.5 rounded border border-live/20 animate-pulse">Live Match</span>
+                <span className="live-dot text-[10px] font-bold uppercase tracking-widest text-live bg-live/10 px-2 py-0.5 rounded border border-live/20 animate-pulse">Live</span>
                 <div className="flex items-center gap-3">
-                  <span className="font-display text-lg text-white">{home.flag} {home.name}</span>
-                  <span className="font-sport text-xl font-bold text-white tabular-nums">{m.homeScore} – {m.awayScore}</span>
-                  <span className="font-display text-lg text-white">{away.code} {away.flag}</span>
+                  <span className="font-display text-base md:text-lg text-white">{home.flag} {home.name}</span>
+                  <span className="font-sport text-lg md:text-xl font-bold text-white tabular-nums">{m.homeScore} – {m.awayScore}</span>
+                  <span className="font-display text-base md:text-lg text-white">{away.code} {away.flag}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-3 text-xs">
+              <div className="flex items-center gap-3 text-[11px] md:text-xs">
                 <span className="font-sport text-amber-500 font-semibold bg-amber-500/10 px-2.5 py-0.5 rounded border border-amber-500/20">{m.minute}' Played</span>
                 <span className="text-slate-400">📍 {m.venue}</span>
               </div>
             </div>
           </div>
         ) : (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3 text-center text-xs text-slate-400">
+          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-2 md:p-3 text-center text-xs text-slate-400">
             🏟️ Global Fan Arena is open. Share your chants below!
           </div>
         )}
 
         {/* Fan Statistics */}
-        <div className="flex flex-wrap items-center gap-2 text-xs py-1.5 px-3 rounded-xl bg-white/[0.02] border border-white/5">
-          <span className="text-slate-400 uppercase tracking-widest text-[10px] font-bold">Stadium Support:</span>
-          {featuredTeams.map((t) => {
-            const count = teamOnlineCounts[t.slug] || 0;
-            return (
-              <span key={t.slug} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/5 border border-white/5 text-slate-300">
-                <span className="text-sm">{t.flag}</span>
-                <span className="font-semibold">{t.name}:</span>
-                <span className="text-emerald-400 font-bold tabular-nums">{count}</span>
-              </span>
-            );
-          })}
+        <div className="flex items-center gap-2 overflow-x-auto text-[10px] md:text-xs py-1 md:py-1.5 px-2 md:px-3 rounded-xl bg-white/[0.02] border border-white/5 whitespace-nowrap scrollbar-none">
+          <span className="text-slate-400 uppercase tracking-widest text-[9px] font-bold hidden sm:inline">Stadium Support:</span>
+          <span className="text-slate-400 uppercase tracking-widest text-[9px] font-bold sm:hidden">Support:</span>
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+            {featuredTeams.map((t) => {
+              const count = teamOnlineCounts[t.slug] || 0;
+              return (
+                <span key={t.slug} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/5 border border-white/5 text-slate-300 shrink-0">
+                  <span className="text-sm">{t.flag}</span>
+                  <span className="font-semibold">{t.name}:</span>
+                  <span className="text-emerald-400 font-bold tabular-nums">{count}</span>
+                </span>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -507,7 +510,7 @@ function Arena() {
           <div 
             ref={chatContainerRef}
             onScroll={handleScroll}
-            className="flex-1 overflow-y-auto p-5 space-y-4 scroll-smooth"
+            className="flex-1 overflow-y-auto p-3 md:p-5 space-y-3 md:space-y-4 scroll-smooth"
           >
             {messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center text-slate-400 p-8">
@@ -563,7 +566,7 @@ function Arena() {
                   setIsAtBottom(true);
                 }
               }}
-              className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 rounded-full bg-gold hover:bg-gold-light text-gold-foreground font-semibold px-4 py-2 text-xs shadow-lg animate-bounce transition active:scale-95 cursor-pointer"
+              className="absolute bottom-16 md:bottom-20 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 rounded-full bg-gold hover:bg-gold-light text-gold-foreground font-semibold px-4 py-2 text-xs shadow-lg animate-bounce transition active:scale-95 cursor-pointer"
             >
               <span>↓ New Messages</span>
             </button>
@@ -573,21 +576,21 @@ function Arena() {
           {/* Maintain sticky typing bar on mobile */}
           {/* Handle keyboard-safe area */}
           <div 
-            className="border-t border-white/10 p-4 bg-[#091814]/90 backdrop-blur-md relative shrink-0"
-            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
+            className="border-t border-white/10 p-2.5 md:p-4 bg-[#091814]/90 backdrop-blur-md relative shrink-0"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 10px)' }}
           >
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 md:gap-3">
               {/* Emoji Button */}
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setShowEmojiPicker((v) => !v)}
-                  className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/5 border border-white/10 text-slate-400 hover:text-white transition active:scale-95"
+                  className="grid h-10 w-10 md:h-12 md:w-12 shrink-0 place-items-center rounded-xl md:rounded-2xl bg-white/5 border border-white/10 text-slate-400 hover:text-white transition active:scale-95"
                 >
                   <Smile className="h-5 w-5" />
                 </button>
                 {showEmojiPicker && (
-                  <div className="absolute bottom-14 left-0 z-50 bg-[#0b1f1a] border border-white/10 p-3 rounded-2xl shadow-2xl flex gap-2 flex-wrap min-w-[220px] max-w-[280px]">
+                  <div className="absolute bottom-12 left-0 z-50 bg-[#0b1f1a] border border-white/10 p-3 rounded-2xl shadow-2xl flex gap-2 flex-wrap min-w-[220px] max-w-[280px]">
                     {["⚽", "🏆", "🔥", "👏", "😂", "📣", "🙌", "🥳", "🤩", "🏟️"].map((e) => (
                       <button
                         key={e}
@@ -612,19 +615,20 @@ function Arena() {
                 placeholder={fan ? `Chant for ${getTeam(fan.teamSlug)?.name ?? "your team"}...` : "Join the stadium first to send chants"}
                 disabled={!fan}
                 maxLength={300}
-                className="w-full rounded-2xl bg-white/5 px-5 py-3 md:text-sm text-base text-white outline-none border border-white/10 focus:border-gold focus:ring-1 focus:ring-gold/30 disabled:opacity-50 placeholder-slate-400 transition"
+                className="w-full h-10 md:h-12 rounded-xl md:rounded-2xl bg-white/5 px-3 md:px-5 py-2 md:py-3 text-sm text-white outline-none border border-white/10 focus:border-gold focus:ring-1 focus:ring-gold/30 disabled:opacity-50 placeholder-slate-400 transition"
               />
               <button
                 onClick={validateAndSend}
                 disabled={!fan || !text.trim()}
-                className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gold text-gold-foreground font-bold hover:bg-gold-light disabled:opacity-40 shadow-lg transition active:scale-95"
+                className="grid h-10 w-10 md:h-12 md:w-12 shrink-0 place-items-center rounded-xl md:rounded-2xl bg-gold text-gold-foreground font-bold hover:bg-gold-light disabled:opacity-40 shadow-lg transition active:scale-95"
               >
                 <Send className="h-5 w-5" />
               </button>
             </div>
             {fan && (
-              <div className="mt-2 flex justify-between items-center px-1 text-[10px] text-slate-500">
-                <span>Press enter to send</span>
+              <div className="mt-1.5 flex justify-between items-center px-1 text-[10px] text-slate-500">
+                <span className="hidden sm:inline">Press enter to send</span>
+                <span className="sm:hidden">Be respectful</span>
                 <span className={text.length > 250 ? "text-amber-500" : ""}>{text.length}/300 chars</span>
               </div>
             )}

@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet, Link, createRootRouteWithContext, useRouter,
-  HeadContent, Scripts,
+  HeadContent, Scripts, useLocation,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
@@ -82,6 +82,8 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const location = useLocation();
+  const isArena = location.pathname === "/arena";
   return (
     <QueryClientProvider client={queryClient}>
       <TeamPopupProvider>
@@ -90,7 +92,7 @@ function RootComponent() {
           <main className="flex-1">
             <Outlet />
           </main>
-          <Footer />
+          {!isArena && <Footer />}
         </div>
         <OnboardingDialog />
         <Toaster position="top-center" />
