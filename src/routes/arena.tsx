@@ -78,6 +78,32 @@ function Arena() {
 
   // 1. FETCH HISTORICAL MESSAGES ON MOUNT
   useEffect(() => {
+    // Check if reset query parameter is present to perform full data reset
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("reset") === "true") {
+      const resetDB = async () => {
+        try {
+          const { error } = await supabase.rpc("reset_all_data");
+          if (error) {
+            console.error("Error resetting database:", error);
+            toast.error("Failed to reset database: " + error.message);
+          } else {
+            const { clearFan } = await import("@/lib/onboarding");
+            clearFan();
+            toast.success("All messages and user profiles reset successfully!");
+            setTimeout(() => {
+              window.location.href = window.location.pathname; // Reload without search param
+            }, 1000);
+          }
+        } catch (err) {
+          console.error("Exception resetting database:", err);
+          toast.error("Exception during database reset.");
+        }
+      };
+      resetDB();
+      return;
+    }
+
     if (!chatConfig.enabled) return;
 
     const fetchMessages = async () => {
